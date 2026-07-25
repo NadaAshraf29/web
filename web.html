@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>AI Employees as a Service</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<style>
+:root{
+  --bg:#05060a;
+  --bg2:#090b12;
+  --ink:#f4f6fb;
+  --ink-dim:#8892a6;
+  --ink-faint:#525a6c;
+  --accent:#4d6bff;
+  --accent-2:#ffb020;
+  --cyan:#39e4c4;
+  --danger:#ff5d5d;
+  --glass:rgba(255,255,255,0.045);
+  --glass-brd:rgba(255,255,255,0.09);
+  --disp:'Space Grotesk',sans-serif;
+  --body:'Inter',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{background:var(--bg);}
+html,body{width:100%;overflow-x:hidden;}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--body);
+  -webkit-font-smoothing:antialiased;
+  line-height:1.5;
+}
+::selection{background:var(--accent);color:#fff;}
+a{color:inherit;text-decoration:none;}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important;}
+}
+
+/* ---------- persistent background layers ---------- */
+#particle-canvas{
+  position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none;
+  opacity:0.55;
+}
+#cursor-glow{
+  position:fixed; width:520px; height:520px; border-radius:50%;
+  background:radial-gradient(circle, rgba(77,107,255,0.16), rgba(57,228,196,0.06) 40%, transparent 70%);
+  pointer-events:none; z-index:1; transform:translate(-50%,-50%);
+  mix-blend-mode:screen; transition:opacity .4s ease; will-change:transform;
+}
+.grain{
+  position:fixed; inset:0; z-index:2; pointer-events:none; opacity:0.035;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* pulse rail — signature element: the business heartbeat that runs the length of the page */
+#pulse-rail{
+  position:fixed; right:28px; top:50%; transform:translateY(-50%);
+  height:46vh; width:1px; background:linear-gradient(to bottom, transparent, var(--glass-brd) 15%, var(--glass-brd) 85%, transparent);
+  z-index:50; display:flex; align-items:center; justify-content:center;
+}
+#pulse-dot{
+  position:absolute; width:9px; height:9px; border-radius:50%; background:var(--cyan);
+  box-shadow:0 0 12px 3px rgba(57,228,196,0.8);
+  top:0%; left:50%; transform:translate(-50%,-50%);
+}
+#pulse-label{
+  position:absolute; right:22px; top:50%; transform:translateY(-50%) rotate(90deg); transform-origin:right center;
+  font-family:var(--mono); font-size:10px; letter-spacing:0.25em; color:var(--ink-faint); white-space:nowrap;
+}
+@media (max-width:900px){ #pulse-rail{display:none;} }
+
+/* ---------- loader ---------- */
+#loader{
+  position:fixed; inset:0; z-index:9999; background:var(--bg);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px;
+}
+#loader .mark{
+  font-family:var(--mono); font-size:12px; letter-spacing:0.35em; color:var(--ink-dim);
+}
+#loader-bar{
+  width:220px; height:1px; background:rgba(255,255,255,0.1); position:relative; overflow:hidden;
+}
+#loader-fill{
+  position:absolute; left:0; top:0; height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--cyan));
+}
+#loader-pct{ font-family:var(--mono); font-size:11px; color:var(--ink-faint); }
+
+/* ---------- layout helpers ---------- */
+main{position:relative; z-index:5;}
+section{
+  position:relative; min-height:100vh; width:100%;
+  display:flex; align-items:center; justify-content:center;
+  padding:120px 6vw;
+  overflow:hidden;
+}
+.section-inner{ width:100%; max-width:1180px; margin:0 auto; position:relative; }
+.eyebrow{
+  font-family:var(--mono); font-size:11px; letter-spacing:0.3em; text-transform:uppercase; color:var(--cyan);
+  display:inline-flex; align-items:center; gap:10px; margin-bottom:22px;
+}
+.eyebrow::before{content:''; width:22px; height:1px; background:var(--cyan);}
+h1,h2,h3{font-family:var(--disp); font-weight:600; letter-spacing:-0.01em;}
+
+/* ---------- HERO ---------- */
+#hero{ padding:0; }
+#hero-stage{
+  position:relative; width:100%; height:100vh; display:flex; align-items:center; justify-content:center; flex-direction:column;
+}
+.hero-line{
+  font-family:var(--disp); font-weight:500; font-size:clamp(22px,4.4vw,54px);
+  text-align:center; opacity:0; position:absolute; letter-spacing:-0.01em;
+  padding:0 24px;
+}
+.hero-line.clock{ font-family:var(--mono); font-weight:400; font-size:clamp(38px,7vw,88px); letter-spacing:0.05em; color:var(--ink-dim); }
+.hero-line.final{ font-family:var(--disp); font-weight:700; font-size:clamp(34px,7vw,90px); color:var(--danger); text-shadow:0 0 60px rgba(255,93,93,0.35); }
+#hero-scrolldown{
+  position:absolute; bottom:44px; left:50%; transform:translateX(-50%);
+  display:flex; flex-direction:column; align-items:center; gap:10px; opacity:0;
+  font-family:var(--mono); font-size:10px; letter-spacing:0.3em; color:var(--ink-faint);
+}
+#hero-scrolldown .stick{ width:1px; height:34px; background:linear-gradient(to bottom,var(--ink-faint),transparent); animation:stickmove 1.8s ease-in-out infinite; }
+@keyframes stickmove{ 0%{opacity:0; transform:translateY(-6px);} 50%{opacity:1;} 100%{opacity:0; transform:translateY(10px);} }
+
+/* ---------- COUNTER screen ---------- */
+#live-counters .section-inner{ text-align:center; }
+.counters-title{ font-size:clamp(20px,3vw,32px); color:var(--ink-dim); font-family:var(--disp); margin-bottom:56px; font-weight:500;}
+.counters-title b{ color:var(--ink); font-weight:600; }
+.counter-grid{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:28px;
+}
+.counter-card{
+  background:var(--glass); border:1px solid var(--glass-brd); border-radius:18px; padding:32px 18px;
+  backdrop-filter:blur(14px);
+}
+.counter-num{
+  font-family:var(--mono); font-weight:700; font-size:clamp(30px,4.2vw,52px);
+  background:linear-gradient(120deg,var(--ink),var(--cyan)); -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.counter-card.zero .counter-num{ background:linear-gradient(120deg,var(--ink),var(--accent-2)); -webkit-background-clip:text; background-clip:text;}
+.counter-label{ margin-top:10px; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-faint); }
+.counters-foot{ margin-top:30px; font-family:var(--mono); font-size:11px; letter-spacing:0.2em; color:var(--ink-faint); text-transform:uppercase;}
+
+/* ---------- WHILE YOU SLEPT (pinned timeline) ---------- */
+#sleep-scroll{ padding:0; height:190vh; display:block; }
+#sleep-pin{ position:relative; height:100vh; width:100%; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+#sleep-pin::before{
+  content:''; position:absolute; inset:0; z-index:0; opacity:0; transition:opacity .4s ease;
+  background:radial-gradient(60% 50% at 50% 55%, rgba(57,228,196,0.14), transparent 70%);
+}
+#sleep-pin.glow::before{ opacity:1; }
+.sleep-stage{ position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; gap:clamp(20px,4vh,44px); max-height:92vh; padding:0 24px; }
+.sleep-head{ text-align:center; }
+.sleep-head .k1{ font-family:var(--disp); font-size:clamp(18px,2.6vw,28px); color:var(--ink-dim); font-weight:500;}
+.sleep-head .k2{ font-family:var(--disp); font-size:clamp(24px,4.4vw,50px); font-weight:700; margin-top:6px;}
+.sleep-track{ position:relative; width:min(560px,84vw); }
+.sleep-line{ position:absolute; left:22px; top:6px; bottom:6px; width:1px; background:rgba(255,255,255,0.1); }
+.sleep-item{
+  position:relative; padding:12px 0 12px 56px; opacity:0.15; transform:translateX(0) scale(0.97);
+  transition:opacity .25s ease, transform .25s ease;
+}
+.sleep-item.active{ opacity:1; transform:translateX(6px) scale(1); }
+.sleep-item .dot{ position:absolute; left:16px; top:16px; width:11px; height:11px; border-radius:50%; background:var(--bg2); border:2px solid var(--ink-faint); transition:all .25s ease;}
+.sleep-item.active .dot{ background:var(--cyan); border-color:var(--cyan); box-shadow:0 0 16px 4px rgba(57,228,196,0.75); width:13px; height:13px; }
+.sleep-item .t{ font-family:var(--mono); font-size:11px; letter-spacing:0.15em; color:var(--ink-faint); }
+.sleep-item .v{ font-family:var(--disp); font-size:clamp(16px,2vw,22px); font-weight:600; margin-top:4px; }
+.sleep-item.active .v{ color:var(--ink); }
+
+/* ---------- CLONE screen ---------- */
+#clone .section-inner{ text-align:center; }
+.clone-title{ font-size:clamp(26px,4.4vw,52px); font-weight:700; margin-bottom:70px; }
+.clone-title span{ color:var(--accent); }
+.clone-rows{ display:flex; flex-direction:column; gap:52px; }
+.clone-row{ display:flex; align-items:center; justify-content:center; gap:26px; flex-wrap:wrap; }
+.clone-src{
+  font-family:var(--disp); font-weight:600; font-size:clamp(15px,1.6vw,19px);
+  border:1px solid var(--glass-brd); background:var(--glass); padding:14px 22px; border-radius:12px; min-width:210px;
+}
+.clone-arrow{ color:var(--ink-faint); font-family:var(--mono); font-size:20px; }
+.clone-swarm{ display:flex; flex-wrap:wrap; gap:8px; max-width:520px; justify-content:center; }
+.clone-dot{
+  width:15px; height:15px; border-radius:5px; background:linear-gradient(135deg,var(--accent),var(--cyan));
+  opacity:0; transform:scale(0.3);
+}
+.clone-tally{ font-family:var(--mono); font-weight:700; color:var(--ink); font-size:15px; align-self:center; margin-left:6px; min-width:78px; text-align:left;}
+.clone-final{ margin-top:24px; font-family:var(--disp); font-weight:700; font-size:clamp(18px,2.6vw,26px); letter-spacing:0.02em;}
+.clone-final .line{ color:var(--ink-dim); font-weight:500; font-size:0.7em; display:block; margin-bottom:4px; letter-spacing:0.2em; text-transform:uppercase;}
+
+/* ---------- COMPARISON ---------- */
+#compare .section-inner{ text-align:center; }
+.compare-title{ font-size:clamp(24px,4vw,44px); font-weight:700; margin-bottom:56px; }
+.compare-wrap{
+  display:grid; grid-template-columns:1fr auto 1fr; gap:0; align-items:stretch; max-width:920px; margin:0 auto;
+}
+.compare-col{ border:1px solid var(--glass-brd); border-radius:20px; padding:34px 26px; background:var(--glass); text-align:left; }
+.compare-col.human{ border-color:rgba(255,93,93,0.25); }
+.compare-col.ai{ border-color:rgba(57,228,196,0.3); box-shadow:0 0 60px -20px rgba(57,228,196,0.35); }
+.compare-vs{ display:flex; align-items:center; justify-content:center; padding:0 20px; font-family:var(--mono); color:var(--ink-faint); font-size:13px; }
+.compare-name{ font-family:var(--disp); font-weight:600; font-size:20px; margin-bottom:18px; }
+.compare-col.human .compare-name{ color:var(--danger); }
+.compare-col.ai .compare-name{ color:var(--cyan); }
+.compare-list{ list-style:none; display:flex; flex-direction:column; gap:12px; }
+.compare-list li{ font-size:14.5px; color:var(--ink-dim); display:flex; align-items:center; gap:10px; }
+.compare-list li::before{ content:'—'; color:var(--ink-faint); }
+.compare-col.ai .compare-list li::before{ content:'✓'; color:var(--cyan); }
+.compare-question{ margin-top:44px; font-family:var(--disp); font-size:clamp(18px,2.4vw,26px); color:var(--ink-dim); font-weight:500;}
+@media (max-width:720px){ .compare-wrap{ grid-template-columns:1fr; } .compare-vs{ padding:14px 0; } }
+
+/* ---------- EMPLOYEE CARDS ---------- */
+#roster .section-inner{ max-width:1220px; }
+.roster-head{ text-align:center; margin-bottom:56px; }
+.roster-head h2{ font-size:clamp(26px,4vw,46px); }
+.roster-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:20px; }
+.emp-card{
+  position:relative; border-radius:20px; padding:28px 24px 26px; border:1px solid var(--glass-brd);
+  background:linear-gradient(160deg, rgba(255,255,255,0.055), rgba(255,255,255,0.015));
+  backdrop-filter:blur(16px); overflow:hidden; transform-style:preserve-3d; transition:border-color .3s ease;
+  cursor:default;
+}
+.emp-card::before{
+  content:''; position:absolute; inset:0; opacity:0; transition:opacity .35s ease;
+  background:radial-gradient(320px circle at var(--mx,50%) var(--my,50%), rgba(77,107,255,0.22), transparent 60%);
+}
+.emp-card:hover::before{ opacity:1; }
+.emp-card:hover{ border-color:rgba(77,107,255,0.4); }
+.emp-icon{ font-size:26px; margin-bottom:20px; display:inline-block; }
+.emp-role{ font-family:var(--disp); font-weight:600; font-size:18px; margin-bottom:8px; }
+.emp-desc{ font-size:13px; color:var(--ink-dim); line-height:1.55; }
+.emp-status{ margin-top:18px; display:flex; align-items:center; gap:7px; font-family:var(--mono); font-size:10px; letter-spacing:0.15em; color:var(--cyan); text-transform:uppercase;}
+.emp-status .d{ width:6px; height:6px; border-radius:50%; background:var(--cyan); box-shadow:0 0 8px 1px rgba(57,228,196,0.8); animation:blink 1.6s ease-in-out infinite;}
+@keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+
+/* ---------- DASHBOARD ---------- */
+#dashboard .section-inner{ max-width:1080px; }
+.dash-head{ text-align:center; margin-bottom:44px; }
+.dash-head h2{ font-size:clamp(24px,3.6vw,42px); }
+.dash-panel{
+  border:1px solid var(--glass-brd); border-radius:22px; background:var(--glass); backdrop-filter:blur(18px);
+  padding:36px; box-shadow:0 40px 100px -40px rgba(0,0,0,0.7);
+}
+.dash-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:30px; flex-wrap:wrap; gap:12px;}
+.dash-live{ display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:11px; letter-spacing:0.15em; color:var(--cyan); text-transform:uppercase;}
+.dash-live .d{ width:7px; height:7px; border-radius:50%; background:var(--cyan); box-shadow:0 0 8px 2px rgba(57,228,196,0.8); animation:blink 1.4s ease-in-out infinite;}
+.dash-clock{ font-family:var(--mono); font-size:11px; color:var(--ink-faint); }
+.dash-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:22px; margin-bottom:30px; }
+.dash-stat .lbl{ font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:8px; }
+.dash-stat .val{ font-family:var(--mono); font-weight:700; font-size:clamp(24px,3vw,34px); }
+.dash-stat.gold .val{ color:var(--accent-2); }
+.dash-stat.zero .val{ color:var(--ink-dim); }
+.dash-ai{
+  border-top:1px solid var(--glass-brd); padding-top:24px; display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start;
+}
+.dash-ai .tag{ font-family:var(--mono); font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:var(--accent); border:1px solid rgba(77,107,255,0.35); border-radius:6px; padding:4px 8px; white-space:nowrap;}
+.dash-ai p{ font-size:14px; color:var(--ink-dim); flex:1; min-width:220px;}
+.dash-ai p b{ color:var(--ink); font-weight:600; }
+
+/* ---------- INDUSTRIES ---------- */
+#industries .section-inner{ max-width:1200px; }
+.ind-head{ text-align:center; margin-bottom:50px; }
+.ind-head h2{ font-size:clamp(24px,3.6vw,44px); }
+.ind-track{ display:flex; gap:18px; overflow-x:auto; padding-bottom:14px; scrollbar-width:thin; }
+.ind-card{
+  min-width:230px; flex:0 0 auto; border:1px solid var(--glass-brd); border-radius:18px; padding:26px 22px;
+  background:var(--glass); transition:transform .3s ease, border-color .3s ease;
+}
+.ind-card:hover{ transform:translateY(-6px); border-color:rgba(255,255,255,0.2); }
+.ind-icon{ font-size:24px; margin-bottom:16px; }
+.ind-name{ font-family:var(--disp); font-weight:600; font-size:16px; margin-bottom:8px; }
+.ind-before{ font-size:12px; color:var(--danger); opacity:0.8; margin-bottom:4px; }
+.ind-after{ font-size:12px; color:var(--cyan); }
+
+/* ---------- PRICING ---------- */
+#pricing .section-inner{ max-width:1160px; }
+.price-head{ text-align:center; margin-bottom:54px; }
+.price-head h2{ font-size:clamp(26px,4vw,46px); }
+.price-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:24px; }
+.price-card{
+  position:relative; border-radius:24px; padding:38px 30px; border:1px solid var(--glass-brd);
+  background:linear-gradient(170deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+  backdrop-filter:blur(16px); overflow:hidden;
+}
+.price-card.featured{ border-color:rgba(77,107,255,0.5); box-shadow:0 0 90px -30px rgba(77,107,255,0.5); transform:translateY(-10px);}
+.price-badge{ position:absolute; top:20px; right:20px; font-family:var(--mono); font-size:9px; letter-spacing:0.2em; color:var(--accent); border:1px solid rgba(77,107,255,0.4); padding:4px 8px; border-radius:6px; text-transform:uppercase;}
+.price-tier{ font-family:var(--mono); font-size:11px; letter-spacing:0.2em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:16px;}
+.price-amount{ font-family:var(--disp); font-weight:700; font-size:clamp(30px,3.6vw,42px); margin-bottom:2px;}
+.price-amount span{ font-size:14px; font-weight:500; color:var(--ink-faint); }
+.price-desc{ font-size:13px; color:var(--ink-dim); margin-bottom:26px; }
+.price-list{ list-style:none; display:flex; flex-direction:column; gap:11px; margin-bottom:30px; }
+.price-list li{ font-size:13.5px; color:var(--ink-dim); display:flex; gap:9px; }
+.price-list li::before{ content:'✓'; color:var(--cyan); font-weight:700; }
+.price-cta{
+  display:block; text-align:center; padding:13px; border-radius:12px; border:1px solid var(--glass-brd);
+  font-family:var(--disp); font-weight:600; font-size:14px; color:var(--ink); transition:all .25s ease; cursor:pointer;
+}
+.price-card.featured .price-cta{ background:var(--accent); border-color:var(--accent); }
+.price-cta:hover{ border-color:var(--accent); background:rgba(77,107,255,0.1); }
+
+/* ---------- FINALE ---------- */
+#finale{ padding:0; }
+#finale-inner{ height:100vh; display:flex; align-items:center; justify-content:center; text-align:center; flex-direction:column; }
+.finale-line{ font-family:var(--disp); font-weight:600; font-size:clamp(20px,3.6vw,40px); color:var(--ink-faint); opacity:0.2; margin:6px 0; transition:opacity .3s ease, color .3s ease;}
+.finale-line.hot{ color:var(--ink); opacity:1; font-weight:700;}
+.finale-cta{
+  margin-top:46px; display:inline-block; padding:16px 40px; border-radius:100px; background:var(--ink); color:var(--bg);
+  font-family:var(--disp); font-weight:700; font-size:15px; letter-spacing:0.02em; opacity:0; cursor:pointer;
+  box-shadow:0 0 60px -10px rgba(244,246,251,0.4);
+}
+.finale-sub{ margin-top:16px; font-family:var(--mono); font-size:11px; letter-spacing:0.2em; color:var(--ink-faint); text-transform:uppercase; opacity:0; }
+
+footer{
+  position:relative; z-index:5; padding:40px 6vw; border-top:1px solid var(--glass-brd);
+  display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px;
+  font-family:var(--mono); font-size:11px; color:var(--ink-faint); letter-spacing:0.08em;
+}
+
+/* reveal utility */
+.reveal{ opacity:0; transform:translateY(28px); }
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="mark">AI EMPLOYEES AS A SERVICE</div>
+  <div id="loader-bar"><div id="loader-fill"></div></div>
+  <div id="loader-pct">0%</div>
+</div>
+
+<canvas id="particle-canvas"></canvas>
+<div id="cursor-glow"></div>
+<div class="grain"></div>
+<div id="pulse-rail"><div id="pulse-dot"></div><div id="pulse-label">BUSINESS PULSE</div></div>
+
+<main>
+
+  <!-- 1. HERO -->
+  <section id="hero">
+    <div id="hero-stage">
+      <div class="hero-line clock" data-hero>11:59 PM</div>
+      <div class="hero-line" data-hero>Your Business Is Closed.</div>
+      <div class="hero-line" data-hero>Your Employees Went Home.</div>
+      <div class="hero-line" data-hero>Your Customers Are Still Calling.</div>
+      <div class="hero-line" data-hero>Someone Is Losing Money Right Now.</div>
+      <div class="hero-line final" data-hero>IS IT YOU?</div>
+      <div id="hero-scrolldown"><span>SCROLL</span><div class="stick"></div></div>
+    </div>
+  </section>
+
+  <!-- 2. LIVE COUNTERS -->
+  <section id="live-counters">
+    <div class="section-inner">
+      <div class="eyebrow reveal">Right now</div>
+      <p class="counters-title reveal">In the last <b>60 seconds</b>, this is what AI Employees did — while most businesses did nothing.</p>
+      <div class="counter-grid">
+        <div class="counter-card reveal"><div class="counter-num" data-count="157">0</div><div class="counter-label">Customers Called</div></div>
+        <div class="counter-card reveal"><div class="counter-num" data-count="84">0</div><div class="counter-label">Leads Generated</div></div>
+        <div class="counter-card reveal"><div class="counter-num" data-count="65">0</div><div class="counter-label">Appointments Booked</div></div>
+        <div class="counter-card reveal"><div class="counter-num" data-count="42">0</div><div class="counter-label">Sales Closed</div></div>
+        <div class="counter-card zero reveal"><div class="counter-num" data-count="0">0</div><div class="counter-label">Missed Customers</div></div>
+      </div>
+      <div class="counters-foot reveal">All handled by AI Employees. Zero human hours.</div>
+    </div>
+  </section>
+
+  <!-- 3. WHILE YOU WERE SLEEPING (pinned) -->
+  <section id="sleep-scroll">
+    <div id="sleep-pin">
+      <div class="sleep-stage">
+        <div class="sleep-head">
+          <div class="k1">While you were sleeping,</div>
+          <div class="k2">your AI Employee was working.</div>
+        </div>
+        <div class="sleep-track">
+          <div class="sleep-line"></div>
+          <div class="sleep-item" data-sleep><span class="dot"></span><div class="t">12:00 AM</div><div class="v">Shift begins. No one clocked in — no one needed to.</div></div>
+          <div class="sleep-item" data-sleep><span class="dot"></span><div class="t">3:40 AM</div><div class="v">15 calls answered</div></div>
+          <div class="sleep-item" data-sleep><span class="dot"></span><div class="t">5:15 AM</div><div class="v">32 leads generated</div></div>
+          <div class="sleep-item" data-sleep><span class="dot"></span><div class="t">6:50 AM</div><div class="v">15 appointments booked</div></div>
+          <div class="sleep-item" data-sleep><span class="dot"></span><div class="t">7:30 AM</div><div class="v">Revenue increased — before your coffee.</div></div>
+          <div class="sleep-item" data-sleep><span class="dot"></span><div class="t">8:00 AM</div><div class="v">Business growing. 24/7.</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. CLONE -->
+  <section id="clone">
+    <div class="section-inner">
+      <div class="clone-title reveal">What if you could clone <span>your best employee?</span></div>
+      <div class="clone-rows">
+        <div class="clone-row reveal">
+          <div class="clone-src">AI Receptionist</div><div class="clone-arrow">→</div>
+          <div class="clone-swarm" data-swarm="50"></div><div class="clone-tally" data-tally="50">×0</div>
+        </div>
+        <div class="clone-row reveal">
+          <div class="clone-src">AI Sales Employee</div><div class="clone-arrow">→</div>
+          <div class="clone-swarm" data-swarm="100"></div><div class="clone-tally" data-tally="100">×0</div>
+        </div>
+        <div class="clone-row reveal">
+          <div class="clone-src">AI Customer Support</div><div class="clone-arrow">→</div>
+          <div class="clone-swarm" data-swarm="1"></div><div class="clone-tally" data-tally="0">Unlimited</div>
+        </div>
+      </div>
+      <div class="clone-final reveal"><span class="line">No breaks · No leaves · No missed customers · No working hours</span>Only results.</div>
+    </div>
+  </section>
+
+  <!-- 5. COMPARISON -->
+  <section id="compare">
+    <div class="section-inner">
+      <div class="eyebrow reveal" style="justify-content:center;display:flex;">Head to head</div>
+      <div class="compare-title reveal">Same job. Different reality.</div>
+      <div class="compare-wrap reveal">
+        <div class="compare-col human">
+          <div class="compare-name">Your Employee</div>
+          <ul class="compare-list">
+            <li>Works 8 hours a day</li>
+            <li>Takes leaves and sick days</li>
+            <li>Misses calls after hours</li>
+            <li>Limited, human productivity</li>
+          </ul>
+        </div>
+        <div class="compare-vs">VS</div>
+        <div class="compare-col ai">
+          <div class="compare-name">Our AI Employee</div>
+          <ul class="compare-list">
+            <li>Works 24 hours, 7 days a week</li>
+            <li>Never sleeps, never calls in sick</li>
+            <li>Unlimited simultaneous conversations</li>
+            <li>Always available, always learning</li>
+          </ul>
+        </div>
+      </div>
+      <div class="compare-question reveal">Who would you hire?</div>
+    </div>
+  </section>
+
+  <!-- 6. ROSTER -->
+  <section id="roster">
+    <div class="section-inner">
+      <div class="roster-head">
+        <div class="eyebrow reveal" style="justify-content:center;display:flex;">The team</div>
+        <h2 class="reveal">Meet your new AI workforce.</h2>
+      </div>
+      <div class="roster-grid" id="roster-grid"></div>
+    </div>
+  </section>
+
+  <!-- 7. DASHBOARD -->
+  <section id="dashboard">
+    <div class="section-inner">
+      <div class="dash-head">
+        <div class="eyebrow reveal" style="justify-content:center;display:flex;">Command center</div>
+        <h2 class="reveal">Your business, live.</h2>
+      </div>
+      <div class="dash-panel reveal">
+        <div class="dash-top">
+          <div class="dash-live"><span class="d"></span>LIVE — TODAY</div>
+          <div class="dash-clock" id="dash-clock">--:--:--</div>
+        </div>
+        <div class="dash-grid">
+          <div class="dash-stat"><div class="lbl">Calls Today</div><div class="val" data-dash="352">0</div></div>
+          <div class="dash-stat gold"><div class="lbl">Revenue</div><div class="val" data-dash="185000" data-prefix="$">$0</div></div>
+          <div class="dash-stat"><div class="lbl">Appointments</div><div class="val" data-dash="85">0</div></div>
+          <div class="dash-stat"><div class="lbl">Leads</div><div class="val" data-dash="125">0</div></div>
+          <div class="dash-stat zero"><div class="lbl">Missed Calls</div><div class="val" data-dash="0">0</div></div>
+        </div>
+        <div class="dash-ai">
+          <div class="tag">AI Insight</div>
+          <p><b>72% of customers</b> asked about pricing today. Recommended action: <b>launch a marketing campaign tomorrow.</b></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. INDUSTRIES -->
+  <section id="industries">
+    <div class="section-inner">
+      <div class="ind-head">
+        <div class="eyebrow reveal" style="justify-content:center;display:flex;">Built for every business</div>
+        <h2 class="reveal">One AI workforce. Every industry.</h2>
+      </div>
+      <div class="ind-track reveal" id="ind-track"></div>
+    </div>
+  </section>
+
+  <!-- 9. PRICING -->
+  <section id="pricing">
+    <div class="section-inner">
+      <div class="price-head">
+        <div class="eyebrow reveal" style="justify-content:center;display:flex;">Join the future</div>
+        <h2 class="reveal">Hire your AI workforce.</h2>
+      </div>
+      <div class="price-grid">
+        <div class="price-card reveal">
+          <div class="price-tier">For Startups</div>
+          <div class="price-amount">4,999<span> EGP / month</span></div>
+          <div class="price-desc">One AI Employee, fully trained on your business.</div>
+          <ul class="price-list">
+            <li>Egyptian voice technology</li>
+            <li>WhatsApp API integration</li>
+            <li>Basic workflow automation</li>
+            <li>Standard reporting</li>
+          </ul>
+          <a class="price-cta" href="#">Start With One</a>
+        </div>
+        <div class="price-card featured reveal">
+          <div class="price-badge">Most hired</div>
+          <div class="price-tier">For Growing Businesses</div>
+          <div class="price-amount">9,999<span> EGP / month</span></div>
+          <div class="price-desc">A full AI team across sales, support and scheduling.</div>
+          <ul class="price-list">
+            <li>Everything in Startups</li>
+            <li>CRM &amp; Odoo ERP integration</li>
+            <li>Custom AI training</li>
+            <li>Custom dashboards</li>
+            <li>Priority workflow automation</li>
+          </ul>
+          <a class="price-cta" href="#">Build My Team</a>
+        </div>
+        <div class="price-card reveal">
+          <div class="price-tier">For Market Leaders</div>
+          <div class="price-amount">24,999<span> EGP / month</span></div>
+          <div class="price-desc">An unlimited AI workforce built around your operations.</div>
+          <ul class="price-list">
+            <li>Everything in Growing Businesses</li>
+            <li>Unlimited AI Employees</li>
+            <li>Mobile applications</li>
+            <li>Dedicated AI architecture team</li>
+          </ul>
+          <a class="price-cta" href="#">Go Unlimited</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10. FINALE -->
+  <section id="finale">
+    <div id="finale-inner">
+      <div class="finale-line" data-finale>The future of business is not</div>
+      <div class="finale-line" data-finale>more employees.</div>
+      <div class="finale-line hot" data-finale style="margin-top:18px;">It's smarter employees.</div>
+      <div class="finale-line hot" data-finale style="font-size:clamp(28px,5vw,58px);">It's AI Employees.</div>
+      <a class="finale-cta" href="#pricing">Hire Your First AI Employee</a>
+      <div class="finale-sub">Your next employee never sleeps.</div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <span>AI EMPLOYEES AS A SERVICE — © 2026</span>
+  <span>CAIRO, EGYPT</span>
+</footer>
+
+<script>
+gsap.registerPlugin(ScrollTrigger);
+
+/* ============ LOADER ============ */
+window.addEventListener('load', () => {
+  const fill = document.getElementById('loader-fill');
+  const pct = document.getElementById('loader-pct');
+  let p = 0;
+  const t = setInterval(() => {
+    p += Math.random()*18;
+    if(p >= 100){ p = 100; clearInterval(t); }
+    fill.style.width = p + '%';
+    pct.textContent = Math.floor(p) + '%';
+    if(p === 100){
+      setTimeout(() => {
+        gsap.to('#loader', { opacity:0, duration:0.7, ease:'power2.inOut', onComplete: () => {
+          document.getElementById('loader').style.display='none';
+          initHero();
+          ScrollTrigger.refresh();
+        }});
+      }, 260);
+    }
+  }, 140);
+});
+
+/* ============ PARTICLE NETWORK ============ */
+const canvas = document.getElementById('particle-canvas');
+const ctx = canvas.getContext('2d');
+let W,H,particles=[];
+function resize(){
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = document.documentElement.scrollHeight;
+}
+function initParticles(){
+  const count = Math.min(90, Math.floor(window.innerWidth/16));
+  particles = Array.from({length:count}, () => ({
+    x: Math.random()*W, y: Math.random()*H,
+    vx: (Math.random()-0.5)*0.15, vy:(Math.random()-0.5)*0.15,
+    r: Math.random()*1.6+0.6
+  }));
+}
+resize(); initParticles();
+window.addEventListener('resize', () => { resize(); initParticles(); });
+
+function drawParticles(){
+  ctx.clearRect(0,0,W,H);
+  const scrollY = window.scrollY;
+  const viewTop = scrollY - 200, viewBottom = scrollY + window.innerHeight + 200;
+  ctx.fillStyle = 'rgba(180,195,255,0.55)';
+  for(const p of particles){
+    p.x += p.vx; p.y += p.vy;
+    if(p.x<0) p.x=W; if(p.x>W) p.x=0;
+    if(p.y<0) p.y=H; if(p.y>H) p.y=0;
+    if(p.y < viewTop || p.y > viewBottom) continue;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(77,107,255,0.12)';
+  ctx.lineWidth = 1;
+  for(let i=0;i<particles.length;i++){
+    const a = particles[i];
+    if(a.y < viewTop || a.y > viewBottom) continue;
+    for(let j=i+1;j<particles.length;j++){
+      const b = particles[j];
+      if(b.y < viewTop || b.y > viewBottom) continue;
+      const dx=a.x-b.x, dy=a.y-b.y, d=Math.sqrt(dx*dx+dy*dy);
+      if(d < 130){ ctx.globalAlpha = 1-(d/130); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+    }
+  }
+  ctx.globalAlpha = 1;
+  requestAnimationFrame(drawParticles);
+}
+requestAnimationFrame(drawParticles);
+window.addEventListener('load', () => setTimeout(resize, 500));
+
+/* ============ CURSOR GLOW ============ */
+const glow = document.getElementById('cursor-glow');
+let gx=window.innerWidth/2, gy=window.innerHeight/2, cx=gx, cy=gy;
+window.addEventListener('mousemove', e => { gx=e.clientX; gy=e.clientY; });
+(function loop(){ cx += (gx-cx)*0.12; cy += (gy-cy)*0.12; glow.style.transform = `translate(${cx}px,${cy}px) translate(-50%,-50%)`; requestAnimationFrame(loop); })();
+
+/* ============ PULSE RAIL ============ */
+gsap.to('#pulse-dot', {
+  top:'100%',
+  ease:'none',
+  scrollTrigger:{ trigger:document.body, start:'top top', end:'bottom bottom', scrub:0.3 }
+});
+
+/* ============ HERO SEQUENCE ============ */
+function initHero(){
+  const lines = gsap.utils.toArray('[data-hero]');
+  const tl = gsap.timeline();
+  lines.forEach((line, i) => {
+    tl.to(line, { opacity:1, y:0, duration:0.7, ease:'power2.out' }, '+=0.35')
+      .to(line, { opacity: i===lines.length-1?1:0, y: i===lines.length-1?0:-16, duration:0.6, ease:'power2.in' }, '+=0.9');
+  });
+  gsap.set('[data-hero]', { y:14 });
+  tl.to('#hero-scrolldown', { opacity:1, duration:0.6 }, '-=0.2');
+}
+
+/* ============ GENERIC REVEALS ============ */
+gsap.utils.toArray('.reveal').forEach(el => {
+  gsap.to(el, {
+    opacity:1, y:0, duration:0.9, ease:'power3.out',
+    scrollTrigger:{ trigger:el, start:'top 88%' }
+  });
+});
+
+/* ============ COUNTERS (screen 2) ============ */
+function animateCount(el, target, duration=1.6){
+  const obj = { v:0 };
+  gsap.to(obj, {
+    v:target, duration, ease:'power2.out',
+    onUpdate: () => { el.textContent = Math.floor(obj.v).toLocaleString(); }
+  });
+}
+ScrollTrigger.create({
+  trigger:'#live-counters', start:'top 70%', once:true,
+  onEnter: () => document.querySelectorAll('.counter-num').forEach(el => animateCount(el, +el.dataset.count))
+});
+
+/* ============ WHILE YOU SLEPT (pinned scrub) ============ */
+const sleepItems = gsap.utils.toArray('[data-sleep]');
+const sleepPinEl = document.getElementById('sleep-pin');
+ScrollTrigger.create({
+  trigger:'#sleep-scroll', start:'top top', end:'bottom bottom', pin:'#sleep-pin', scrub:0.4,
+  onUpdate: self => {
+    sleepPinEl.classList.toggle('glow', self.progress > 0.02 && self.progress < 0.98);
+    const idx = Math.min(sleepItems.length-1, Math.floor(self.progress * sleepItems.length));
+    sleepItems.forEach((it,i) => it.classList.toggle('active', i<=idx));
+  }
+});
+
+/* ============ CLONE SWARM ============ */
+document.querySelectorAll('[data-swarm]').forEach(wrap => {
+  const n = Math.min(+wrap.dataset.swarm, 60);
+  for(let i=0;i<n;i++){ const d=document.createElement('div'); d.className='clone-dot'; wrap.appendChild(d); }
+});
+gsap.utils.toArray('.clone-row').forEach(row => {
+  ScrollTrigger.create({
+    trigger:row, start:'top 75%', once:true,
+    onEnter: () => {
+      const dots = row.querySelectorAll('.clone-dot');
+      gsap.to(dots, { opacity:1, scale:1, duration:0.5, stagger:0.02, ease:'back.out(2)' });
+      const tally = row.querySelector('.clone-tally');
+      const target = +tally.dataset.tally;
+      if(target > 0){
+        const obj={v:0};
+        gsap.to(obj,{ v:target, duration:1.4, ease:'power2.out', onUpdate:()=>{ tally.textContent = '×'+Math.floor(obj.v); } });
+      }
+    }
+  });
+});
+
+/* ============ EMPLOYEE ROSTER ============ */
+const roster = [
+  {icon:'☎️', role:'AI Receptionist', desc:'Answers every call, in your customers\' language, before the third ring.'},
+  {icon:'📈', role:'AI Sales Employee', desc:'Follows up on every lead until it becomes a customer — or a clear no.'},
+  {icon:'💬', role:'AI Customer Support', desc:'Resolves questions instantly, any hour, in unlimited conversations at once.'},
+  {icon:'🗂️', role:'AI HR Assistant', desc:'Screens candidates, schedules interviews, keeps your team organized.'},
+  {icon:'📣', role:'AI Marketing Assistant', desc:'Spots demand in real time and launches the campaign before you ask.'},
+  {icon:'📊', role:'AI Business Analyst', desc:'Reads every call and sale, then tells you exactly what to do next.'},
+  {icon:'⚙️', role:'AI Operations Assistant', desc:'Keeps appointments, inventory, and workflows running without you.'}
+];
+const rosterGrid = document.getElementById('roster-grid');
+roster.forEach(r => {
+  const card = document.createElement('div');
+  card.className = 'emp-card reveal';
+  card.innerHTML = `<div class="emp-icon">${r.icon}</div><div class="emp-role">${r.role}</div><div class="emp-desc">${r.desc}</div><div class="emp-status"><span class="d"></span>Active now</div>`;
+  card.addEventListener('mousemove', e => {
+    const rect = card.getBoundingClientRect();
+    card.style.setProperty('--mx', (e.clientX-rect.left)+'px');
+    card.style.setProperty('--my', (e.clientY-rect.top)+'px');
+  });
+  rosterGrid.appendChild(card);
+});
+gsap.utils.toArray('#roster-grid .reveal').forEach(el => {
+  gsap.to(el, { opacity:1, y:0, duration:0.8, ease:'power3.out', scrollTrigger:{ trigger:el, start:'top 90%' } });
+});
+
+/* ============ DASHBOARD ============ */
+function tickClock(){
+  const el = document.getElementById('dash-clock');
+  if(el) el.textContent = new Date().toLocaleTimeString('en-GB');
+}
+setInterval(tickClock, 1000); tickClock();
+
+ScrollTrigger.create({
+  trigger:'#dashboard', start:'top 65%', once:true,
+  onEnter: () => document.querySelectorAll('[data-dash]').forEach(el => {
+    const target = +el.dataset.dash;
+    const prefix = el.dataset.prefix || '';
+    const obj={v:0};
+    gsap.to(obj,{ v:target, duration:1.8, ease:'power2.out', onUpdate:()=>{ el.textContent = prefix + Math.floor(obj.v).toLocaleString(); } });
+  })
+});
+
+/* ============ INDUSTRIES ============ */
+const industries = [
+  {icon:'🏥', name:'Healthcare', before:'Patients on hold, appointments missed', after:'Every call answered, every slot filled'},
+  {icon:'🍽️', name:'Restaurants', before:'Reservations lost during rush hour', after:'Bookings confirmed automatically, 24/7'},
+  {icon:'🏠', name:'Real Estate', before:'Leads go cold overnight', after:'Every inquiry followed up within seconds'},
+  {icon:'🎓', name:'Education', before:'Enrollment questions pile up unanswered', after:'Instant answers, higher enrollment'},
+  {icon:'🛒', name:'E-commerce', before:'Cart questions go unanswered after hours', after:'Support that never closes'},
+  {icon:'🏢', name:'SMEs', before:'One receptionist, limited hours', after:'A full team, unlimited hours'},
+  {icon:'🏛️', name:'Enterprises', before:'Scaling support means hiring hundreds', after:'Scaling support means one command'}
+];
+const indTrack = document.getElementById('ind-track');
+industries.forEach(i => {
+  const c = document.createElement('div');
+  c.className = 'ind-card';
+  c.innerHTML = `<div class="ind-icon">${i.icon}</div><div class="ind-name">${i.name}</div><div class="ind-before">Before: ${i.before}</div><div class="ind-after">After: ${i.after}</div>`;
+  indTrack.appendChild(c);
+});
+
+/* ============ FINALE ============ */
+gsap.utils.toArray('[data-finale]').forEach((line,i) => {
+  gsap.to(line, { opacity:1, duration:0.7, ease:'power2.out', scrollTrigger:{ trigger:'#finale', start:'top 60%' } }, );
+});
+gsap.timeline({ scrollTrigger:{ trigger:'#finale', start:'top 40%' } })
+  .to('.finale-cta', { opacity:1, duration:0.8, ease:'power2.out' })
+  .to('.finale-sub', { opacity:1, duration:0.8, ease:'power2.out' }, '-=0.4');
+
+/* smooth-ish native scroll easing for anchor links */
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const target = document.querySelector(a.getAttribute('href'));
+    if(target){ e.preventDefault(); target.scrollIntoView({behavior:'smooth'}); }
+  });
+});
+</script>
+</body>
+</html>
